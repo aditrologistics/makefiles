@@ -1,0 +1,80 @@
+# Makefile
+
+The makefile is a way to simplify recurring tasks, such as deploying the workload, both frontend and backend.
+
+# Configuration
+
+In the root directory (i.e. the one above where you found this file), you should create a file named `makevars`.
+
+In it, some key parameters must be defined.
+``` bash
+# Important variable! Will be used for a lot of things!
+WORKLOAD_NAME=transportpricing
+
+# These needs to be set if anything is to be uploaded to Confluence
+#CONFLUENCE_SPACE=~383862944
+#CONFLUENCE_ANCESTOR=Uploaded
+
+# Specify the account numbers for all three environments.
+# They ALL need to be defined!!
+# If e.g. TEST has no account, specify XXX
+AWS_ACCOUNT_DEV=077410211940
+AWS_ACCOUNT_TEST=XXX
+AWS_ACCOUNT_PROD=584748006736
+
+# Specify the id of the Hosted Zone.
+# They ALL need to be defined!!
+# If e.g. TEST has no account, specify XXX
+HOSTED_ZONE_DEV=Z0233749MOQEGRE2N9TX
+HOSTED_ZONE_TEST=XXX
+HOSTED_ZONE_PROD=Z02354332J0BS7Y5CNJ0L
+
+# Specify the id of CloudFront distribution.
+# It is only available after the CDN has been deployed!
+CLOUDFRONT_ID_DEV=E2ZSRX6VJFA0AZ
+CLOUDFRONT_ID_TEST=XXX
+CLOUDFRONT_ID_PROD=XXX
+
+# Override possibilites
+# AWS_REGION defaults to eu-north-1 if not set
+# This is where the workload will be deployed
+AWS_REGION=us-east-2
+
+# SSO_ROLE is the name of the permission set used for deploying the workload.
+# Default is ALA-Developer
+SSO_ROLE=AWSAdministratorAccess
+```
+
+Note that there are some values that will not be available until you have ran `make deploy_backend`.
+
+# Initialization
+
+## Make environment
+Run `make prereqs` to download all the tools you need.
+
+## AWS credentials
+
+First run `make ssoconfigure`. What you need to fill in is printed on screen.
+
+Then run `make ssologin credentials` to get the login tokens you need.
+
+Every day you'll need to rerun `make credentials` to get a fresh new token.
+
+You can read more here:
+* https://aws.amazon.com/premiumsupport/knowledge-center/sso-temporary-credentials/
+* https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sso.html#sso-configure-profile
+
+
+# Deployment
+
+Make knows (by means of `makevars`) almost everything it needs to deploy things. The only extra thing you need to supply is the `DEPLOYSTAGE`.
+
+## Deploy backend
+``` bash
+make deploy_backend DEPLOYSTAGE=[DEV|TEST|PROD]
+```
+
+## Deploy frontend
+``` bash
+make deploy_backend DEPLOYSTAGE=[DEV|TEST|PROD]
+```

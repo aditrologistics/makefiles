@@ -1,13 +1,37 @@
 .PHONY: deploycdk deployfrontend
 
-$(if $(DEBUG),,.SILENT:)
-include makehelpers.mak
--include makevars
+SSO_PORTAL=https://aditrologistics.awsapps.com/start
+SSO_REGION=eu-north-1
+# $(if $(DEBUG),,.SILENT:)
+thisfile:=$(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST))
+makedir=$(dir $(thisfile))
+include $(makedir)/makehelpers.mak
+include ./makevars
+SSO_ROLE?=ALAB-Developer
+AWS_REGION?=eu-north-1
+DEPLOYSTAGE?=$(if $(DEPLOY),$(DEPLOY),DEV)
+
+STAGE_POSTFIX_DEV=dev
+STAGE_POSTFIX_TEST=test
+STAGE_POSTFIX_PROD=
+
+AWS_PROFILE_DEV=$(WORKLOAD_NAME)-dev
+AWS_PROFILE_TEST=$(WORKLOAD_NAME)-test
+AWS_PROFILE_PROD=$(WORKLOAD_NAME)-prod
+
+SUBDOMAIN_DEV=$(WORKLOAD_NAME)-dev
+SUBDOMAIN_TEST=$(WORKLOAD_NAME)-test
+SUBDOMAIN_PROD=$(WORKLOAD_NAME)
 
 ANCESTOR=$(if $(CONFLUENCE_ANCESTOR),-a $(CONFLUENCE_ANCESTOR))
-export DEPLOYSTAGE?=DEV
-export AWS_ACCOUNT=$(AWS_ACCOUNT_$(DEPLOYSTAGE))
-export AWS_PROFILE=$(AWS_PROFILE_ROOT)_$(DEPLOYSTAGE)
+
+AWS_ACCOUNT=$(AWS_ACCOUNT_$(DEPLOYSTAGE))
+AWS_PROFILE=$(AWS_PROFILE_$(DEPLOYSTAGE))
+
+SUBDOMAIN=$(SUBDOMAIN_$(DEPLOYSTAGE))
+HOSTED_ZONE=$(HOSTED_ZONE_$(DEPLOYSTAGE))
+CLOUDFRONT_ID=$(CLOUDFRONT_ID_$(DEPLOYSTAGE))
+
 STAGE=.stage
 JQ=$(STAGE)/jq.exe
 MD2CONF=$(STAGE)/md_to_conf/md2conf.py
@@ -15,15 +39,48 @@ AWS_TOKENS=$(STAGE)/.aws.tokens
 AWS_TOKENVARS=$(STAGE)/.aws.tokenvars
 UPLOADMARKDOWN=$(MD2CONF) --nogo --markdownsrc bitbucket
 
-$(info Deploymanet stage: $(DEPLOYSTAGE))
+UNAME_PREFIX=$()
+ifeq ("$(DEPLOYSTAGE)","PROD")
+WEB_BUCKET_NAME=$(WORKLOAD_NAME)-webcontent
+endif
+ifeq ("$(DEPLOYSTAGE)","DEV")
+WEB_BUCKET_NAME=$(WORKLOAD_NAME)-webcontent-dev-$(USERNAME)
+endif
+ifeq ("$(DEPLOYSTAGE)","TEST")
+WEB_BUCKET_NAME=$(WORKLOAD_NAME)-webcontent-test-$(USERNAME)
+endif
 
+$(warning Deployment stage: $(DEPLOYSTAGE))
+cdk_ctx_hosted_zone=$(if $(HOSTED_ZONE),-c hosted_zone=$(HOSTED_ZONE))
+
+cdk_verbosity = $(if $(DEBUG),-vv)
 backend_deploy:
 	cd backend && \
-	make deploy
+	cdk deploy $(cdk_verbosity) \
+		--profile $(AWS_PROFILE) \
+		-c STAGE=$(DEPLOYSTAGE) \
+		-c AWS_ACCOUNT=$(AWS_ACCOUNT) \
+		-c SUBDOMAIN=$(SUBDOMAIN) \
+		-c WORKLOAD=$(WORKLOAD_NAME) \
+		-c REGION=$(AWS_REGION) \
+		$(cdk_ctx_hosted_zone)
 
-frontend_deploy:
+build_dist:
 	cd frontend && \
-	make deploy
+	npm run build
+
+deploy_s3:
+	$(call require,WEB_BUCKET_NAME,$@)
+	aws s3 cp frontend/dist s3://${WEB_BUCKET_NAME} --recursive --profile $(AWS_PROFILE)
+
+invalidate_cdn:
+	$(call require,CLOUDFRONT_ID,$@)
+	aws cloudfront create-invalidation \
+		--profile $(AWS_PROFILE) \
+		--distribution-id ${CLOUDFRONT_ID} \
+		--paths /index.html
+
+frontend_deploy: build_dist deploy_s3 invalidate_cdn
 
 docs: prereqs
 	$(call require,CONFLUENCE_SPACE)
@@ -33,27 +90,51 @@ docs: prereqs
 		$(ANCESTOR)
 
 
-test:
+test: $(STAGE)
+	which cdk
 	# echo $(shell ls ~/.aws/sso/cache)
 	echo "$(shell ls /c)"
 	echo $(HOMEDIR)
 
-getcredentials:
+credentials getcredentials: $(JQ)
 	# https://aws.amazon.com/premiumsupport/knowledge-center/sso-temporary-credentials/
 	# https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sso.html#sso-configure-profile
 
 
 	aws sso get-role-credentials \
 		--account-id $(AWS_ACCOUNT) \
-		--role-name $(AWS_ROLE) \
+		--role-name $(SSO_ROLE) \
 		--access-token $(shell $(JQ) -r .accessToken $(subst \\\\c\\\\,c:\\\\,$(subst /,\\\\,$(shell ls -t $(HOMEDIR)/.aws/sso/cache/*.json| head -1)))) \
-		--region $(AWS_REGION)  > $(AWS_TOKENS)
+		--region $(SSO_REGION)  > $(AWS_TOKENS)
 
-	python utils/credentials_updater.py --ssofile $(AWS_TOKENS) --profile bazbar
+	python $(makedir)/utils/credentials_updater.py \
+		--ssofile $(AWS_TOKENS) \
+		--profile $(AWS_PROFILE)
 
 
-ssologin:
+ensure_profiles:
+	python $(makedir)/utils/ensure_profiles.py \
+		--workload $(WORKLOAD_NAME) \
+		--region $(AWS_REGION) \
+		--ssostarturl $(SSO_PORTAL) \
+		--ssoregion $(SSO_REGION) \
+		--ssorole $(SSO_ROLE) \
+		--stages dev test prod \
+		--accounts $(AWS_ACCOUNT_DEV) $(AWS_ACCOUNT_TEST) $(AWS_ACCOUNT_PROD)
+
+
+ssologin: ensure_profiles
 	aws sso login --profile $(AWS_PROFILE)
+
+ssosetup ssoconfigure ssoconfig:
+	@echo -e "\n\n"
+	@echo "Useful values"
+	@echo "============="
+	@echo "SSO Start URL: $(SSO_PORTAL)"
+	@echo "SSO Region: $(SSO_REGION)"
+	@echo "Name the profile: $(AWS_PROFILE)"
+	@echo -e "\n\n"
+	aws configure sso
 
 
 $(JQ):
