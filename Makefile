@@ -96,7 +96,7 @@ test: $(STAGE)
 	echo "$(shell ls /c)"
 	echo $(HOMEDIR)
 
-credentials getcredentials: $(JQ)
+credentials getcredentials: $(JQ) ssologin
 	# https://aws.amazon.com/premiumsupport/knowledge-center/sso-temporary-credentials/
 	# https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sso.html#sso-configure-profile
 
@@ -154,3 +154,15 @@ $(STAGE):
 	mkdir $@
 
 prereqs: $(STAGE) $(JQ) $(STAGE)/.installed.md2conf
+
+getoutputs: $(JQ)
+	# aws --profile $(AWS_PROFILE) cloudformation list-stacks \
+	# 	--no-paginate \
+	# 	--stack-status-filter UPDATE_COMPLETE \
+	# 	| $(JQ) '.StackSummaries|map(select(.StackName == "$(WORKLOAD_NAME)"))[0].StackId'
+	aws --profile $(AWS_PROFILE) cloudformation describe-stacks \
+		--stack-name $(WORKLOAD_NAME) \
+		| $(JQ) '.Stacks[0].Outputs|map(.OutputKey, "=", .OutputValue)'
+
+# .stage/jq.exe '.StackSummaries|map(select(.StackName == "transportpricing"))[0]'
+# .stage/jq.exe '.StackSummaries|map(select(.StackName == "transportpricing")[0]'
