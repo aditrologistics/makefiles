@@ -7,6 +7,7 @@ thisfile:=$(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST))
 makedir=$(dir $(thisfile))
 include $(makedir)/makehelpers.mak
 include ./makevars
+include ./makevars.$(USERNAME)
 SSO_ROLE?=ALAB-Developer
 AWS_REGION?=eu-north-1
 DEPLOYSTAGE?=$(if $(DEPLOY),$(DEPLOY),DEV)
@@ -32,6 +33,8 @@ SUBDOMAIN=$(SUBDOMAIN_$(DEPLOYSTAGE))
 HOSTED_ZONE=$(HOSTED_ZONE_$(DEPLOYSTAGE))
 CLOUDFRONT_ID=$(CLOUDFRONT_ID_$(DEPLOYSTAGE))
 
+CONFLUENCE_ORGANIZATION=aditrologistics
+
 STAGEDIR=.stage
 JQ=$(STAGEDIR)/jq.exe
 MD2CONF=$(STAGEDIR)/md_to_conf/md2conf.py
@@ -43,32 +46,43 @@ ifeq ("$(DEPLOYSTAGE)","PROD")
 WEB_BUCKET_NAME=$(WORKLOAD_NAME)-webcontent
 endif
 ifeq ("$(DEPLOYSTAGE)","DEV")
-WEB_BUCKET_NAME=$(WORKLOAD_NAME)-webcontent-dev-$(USERNAME)
+WEB_BUCKET_NAME=$(WORKLOAD_NAME)-webcontent-dev-$(subst .,-,$(USERNAME))
 endif
 ifeq ("$(DEPLOYSTAGE)","TEST")
-WEB_BUCKET_NAME=$(WORKLOAD_NAME)-webcontent-test-$(USERNAME)
+WEB_BUCKET_NAME=$(WORKLOAD_NAME)-webcontent-test-$(subst .,-,$(USERNAME))
 endif
 
 $(warning Deployment stage: $(DEPLOYSTAGE))
 cdk_ctx_hosted_zone=$(if $(HOSTED_ZONE),-c hosted_zone=$(HOSTED_ZONE))
 
 cdk_verbosity = $(if $(DEBUG),-vv)
-backend_deploy:
-	cd backend && \
-	cdk deploy $(cdk_verbosity) \
-		--profile $(AWS_PROFILE) \
-		$(cdk_ctx_hosted_zone) \
+
+cdk_context=$(cdk_ctx_hosted_zone) \
 		-c STAGE=$(DEPLOYSTAGE) \
 		-c AWS_ACCOUNT=$(AWS_ACCOUNT) \
 		-c SUBDOMAIN=$(SUBDOMAIN) \
 		-c WORKLOAD=$(WORKLOAD_NAME) \
 		-c REGION=$(AWS_REGION)
 
+deploy_backend backend_deploy:
+	cd backend && \
+	cdk deploy $(cdk_verbosity) \
+		--profile $(AWS_PROFILE) \
+		$(cdk_context)
+
+
 cdk_bootstrap:
 	cd backend && \
 	cdk bootstrap $(cdk_verbosity) \
-		--profile $(AWS_PROFILE)
+		--profile $(AWS_PROFILE) \
+		$(cdk_context)
 
+
+cdk_destroy backend_destroy destroy destroy_backend:
+	cd backend && \
+	cdk destroy $(cdk_verbosity) \
+		--profile $(AWS_PROFILE) \
+		$(cdk_context)
 
 build_dist:
 	cd frontend && \
@@ -85,14 +99,29 @@ invalidate_cdn:
 		--distribution-id ${CLOUDFRONT_ID} \
 		--paths /index.html
 
-frontend_deploy: build_dist deploy_s3 invalidate_cdn
+deploy_frontend frontend_deploy: build_dist deploy_s3 invalidate_cdn
+
+sourcefile=README.md
+makedocs: CONFLUENCE_SPACE=LOG
+makedocs: CONFLUENCE_ANCESTOR="Creating new workloads"
+#184811522
+#Creating+new+workloads
+makedocs: sourcefile=makefiles/README.md
+makedocs: docs
+
 
 docs: prereqs
 	$(call require,CONFLUENCE_SPACE)
-	$(MD2CONF) README.md $(CONFLUENCE_SPACE) \
+	$(call require,CONFLUENCE_USER)
+	$(call require,CONFLUENCE_API_KEY)
+	python $(MD2CONF) \
 		--nogo \
 		--markdownsrc bitbucket \
-		$(ANCESTOR)
+		-u $(CONFLUENCE_USER) \
+		-p $(CONFLUENCE_API_KEY) \
+		-o $(CONFLUENCE_ORGANIZATION) \
+		$(ANCESTOR) \
+		$(sourcefile) $(CONFLUENCE_SPACE)
 
 
 test: $(STAGEDIR)

@@ -45,9 +45,27 @@ AWS_REGION=us-east-2
 SSO_ROLE=AWSAdministratorAccess
 ```
 
-Note that there are some values that will not be available until you have ran `make deploy_backend`.
+Note that there are some values that will not be available until you have ran `make deploy_backend`!
+
+There is another, optional, file, named `$\makevars.<username>` (The username is found as `echo %USERNAME%` in windows).
+
+It should contain user specific information.
+```
+CONFLUENCE_USER=<confluence user name, typically your email address>
+CONFLUENCE_API_KEY=XXX
+```
 
 # Initialization
+
+## Initialize submodules
+This repository is linked to the application repository as a git submodule. To make that work you need to do two things.
+
+```
+git submodule init
+git submodule update
+```
+
+You will need to run `git submodule update` every time `makefiles` have been updated.
 
 ## Make environment
 Run `make prereqs` to download all the tools you need.
