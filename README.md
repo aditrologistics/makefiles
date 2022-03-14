@@ -19,14 +19,14 @@ WORKLOAD_NAME=transportpricing
 # They ALL need to be defined!!
 # If e.g. TEST has no account, specify XXX
 AWS_ACCOUNT_DEV=077410211940
-AWS_ACCOUNT_TEST=XXX
+AWS_ACCOUNT_TEST=383105234713
 AWS_ACCOUNT_PROD=584748006736
 
 # Specify the id of the Hosted Zone.
 # They ALL need to be defined!!
 # If e.g. TEST has no account, specify XXX
 HOSTED_ZONE_DEV=Z0233749MOQEGRE2N9TX
-HOSTED_ZONE_TEST=XXX
+HOSTED_ZONE_TEST=Z07839311QAC1PUU4ON91
 HOSTED_ZONE_PROD=Z02354332J0BS7Y5CNJ0L
 
 # Specify the id of CloudFront distribution.
@@ -56,9 +56,13 @@ Run `make prereqs` to download all the tools you need.
 
 First run `make ssoconfigure`. What you need to fill in is printed on screen.
 
-Then run `make ssologin credentials` to get the login tokens you need.
+Then run `make credentials DEPLOYSTAGE=[DEV|TEST|PROD]` to get the login tokens you need for the stage you want to dpeloy to.
 
 Every day you'll need to rerun `make credentials` to get a fresh new token.
+
+## Bootstrapping CDK
+
+First time you deploy on an account you need to `make cdk_bootstrap DEPLOYSTAGE=[DEV|TEST|PROD]`.
 
 You can read more here:
 * https://aws.amazon.com/premiumsupport/knowledge-center/sso-temporary-credentials/

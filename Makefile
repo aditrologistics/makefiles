@@ -32,14 +32,13 @@ SUBDOMAIN=$(SUBDOMAIN_$(DEPLOYSTAGE))
 HOSTED_ZONE=$(HOSTED_ZONE_$(DEPLOYSTAGE))
 CLOUDFRONT_ID=$(CLOUDFRONT_ID_$(DEPLOYSTAGE))
 
-STAGE=.stage
-JQ=$(STAGE)/jq.exe
-MD2CONF=$(STAGE)/md_to_conf/md2conf.py
-AWS_TOKENS=$(STAGE)/.aws.tokens
-AWS_TOKENVARS=$(STAGE)/.aws.tokenvars
+STAGEDIR=.stage
+JQ=$(STAGEDIR)/jq.exe
+MD2CONF=$(STAGEDIR)/md_to_conf/md2conf.py
+AWS_TOKENS=$(STAGEDIR)/.aws.tokens
+AWS_TOKENVARS=$(STAGEDIR)/.aws.tokenvars
 UPLOADMARKDOWN=$(MD2CONF) --nogo --markdownsrc bitbucket
 
-UNAME_PREFIX=$()
 ifeq ("$(DEPLOYSTAGE)","PROD")
 WEB_BUCKET_NAME=$(WORKLOAD_NAME)-webcontent
 endif
@@ -58,12 +57,18 @@ backend_deploy:
 	cd backend && \
 	cdk deploy $(cdk_verbosity) \
 		--profile $(AWS_PROFILE) \
+		$(cdk_ctx_hosted_zone) \
 		-c STAGE=$(DEPLOYSTAGE) \
 		-c AWS_ACCOUNT=$(AWS_ACCOUNT) \
 		-c SUBDOMAIN=$(SUBDOMAIN) \
 		-c WORKLOAD=$(WORKLOAD_NAME) \
-		-c REGION=$(AWS_REGION) \
-		$(cdk_ctx_hosted_zone)
+		-c REGION=$(AWS_REGION)
+
+cdk_bootstrap:
+	cd backend && \
+	cdk bootstrap $(cdk_verbosity) \
+		--profile $(AWS_PROFILE)
+
 
 build_dist:
 	cd frontend && \
@@ -90,7 +95,7 @@ docs: prereqs
 		$(ANCESTOR)
 
 
-test: $(STAGE)
+test: $(STAGEDIR)
 	which cdk
 	# echo $(shell ls ~/.aws/sso/cache)
 	echo "$(shell ls /c)"
@@ -141,7 +146,7 @@ $(JQ):
 	$(call require,JQ)
 	curl https://github.com/stedolan/jq/releases/download/jq-1.6/jq-win64.exe -L -o $@
 
-$(STAGE)/.installed.md2conf: $(MD2CONF)
+$(STAGEDIR)/.installed.md2conf: $(MD2CONF)
 	$(call require,MD2CONF)
 	pip install -r $(dir $(MD2CONF))requirements.txt
 	touch $@
@@ -150,10 +155,10 @@ $(MD2CONF):
 	$(call require,MD2CONF)
 	git clone https://github.com/RittmanMead/md_to_conf.git $(dir $@)
 
-$(STAGE):
+$(STAGEDIR):
 	mkdir $@
 
-prereqs: $(STAGE) $(JQ) $(STAGE)/.installed.md2conf
+prereqs: $(STAGEDIR) $(JQ) $(STAGEDIR)/.installed.md2conf
 
 getoutputs: $(JQ)
 	# aws --profile $(AWS_PROFILE) cloudformation list-stacks \
@@ -162,7 +167,8 @@ getoutputs: $(JQ)
 	# 	| $(JQ) '.StackSummaries|map(select(.StackName == "$(WORKLOAD_NAME)"))[0].StackId'
 	aws --profile $(AWS_PROFILE) cloudformation describe-stacks \
 		--stack-name $(WORKLOAD_NAME) \
-		| $(JQ) '.Stacks[0].Outputs|map(.OutputKey, "=", .OutputValue)'
+		| $(JQ) '.Stacks[0].Outputs|map(.OutputKey+"="+.OutputValue)' \
+		> $(STAGEDIR)/$(WORKLOAD_NAME)_outputs.json
 
 # .stage/jq.exe '.StackSummaries|map(select(.StackName == "transportpricing"))[0]'
 # .stage/jq.exe '.StackSummaries|map(select(.StackName == "transportpricing")[0]'
