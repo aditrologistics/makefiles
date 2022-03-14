@@ -49,7 +49,7 @@ ifeq ("$(DEPLOYSTAGE)","DEV")
 WEB_BUCKET_NAME=$(WORKLOAD_NAME)-webcontent-dev-$(subst .,-,$(USERNAME))
 endif
 ifeq ("$(DEPLOYSTAGE)","TEST")
-WEB_BUCKET_NAME=$(WORKLOAD_NAME)-webcontent-test-$(subst .,-,$(USERNAME))
+WEB_BUCKET_NAME=$(WORKLOAD_NAME)-webcontent-test
 endif
 
 $(warning Deployment stage: $(DEPLOYSTAGE))
@@ -196,8 +196,10 @@ getoutputs: $(JQ)
 	# 	| $(JQ) '.StackSummaries|map(select(.StackName == "$(WORKLOAD_NAME)"))[0].StackId'
 	aws --profile $(AWS_PROFILE) cloudformation describe-stacks \
 		--stack-name $(WORKLOAD_NAME) \
-		| $(JQ) '.Stacks[0].Outputs|map(.OutputKey+"="+.OutputValue)' \
-		> $(STAGEDIR)/$(WORKLOAD_NAME)_outputs.json
+		| $(JQ) '.Stacks[0].Outputs|map(.OutputValue)'
+
+#		\
+#		> $(STAGEDIR)/$(WORKLOAD_NAME)_outputs.json
 
 # .stage/jq.exe '.StackSummaries|map(select(.StackName == "transportpricing"))[0]'
 # .stage/jq.exe '.StackSummaries|map(select(.StackName == "transportpricing")[0]'

@@ -76,7 +76,7 @@ First run `make ssoconfigure`. What you need to fill in is printed on screen.
 
 Then run `make credentials DEPLOYSTAGE=[DEV|TEST|PROD]` to get the login tokens you need for the stage you want to dpeloy to.
 
-Every day you'll need to rerun `make credentials` to get a fresh new token.
+You'll need to rerun `make credentials` when the tokens have expired to get a fresh set new token.
 
 ## Bootstrapping CDK
 
@@ -100,3 +100,18 @@ make deploy_backend DEPLOYSTAGE=[DEV|TEST|PROD]
 ``` bash
 make deploy_backend DEPLOYSTAGE=[DEV|TEST|PROD]
 ```
+
+## Destroy stack
+``` bash
+make cdk_destroy DEPLOYSTAGE=[DEV|TEST|PROD]
+```
+
+# When credentials no longer work
+
+If you get a warning similar to
+```
+current credentials could not be used to assume 'arn:aws:iam::XXXXXXXXXXXX:role/cdk-hnb659fds-lookup-role-XXXXXXXXXXXX-us-east-2', but are for the right account. Proceeding anyway.
+(To get rid of this warning, please upgrade to bootstrap version >= 8)
+current credentials could not be used to assume 'arn:aws:iam::XXXXXXXXXXXX:role/cdk-hnb659fds-deploy-role-XXXXXXXXXXXX-us-east-2', but are for the right account. Proceeding anyway.
+```
+ The most likely reason is that your tokens have expired. Simply invoke `make credentials` to refresh them and start again. It is of course possible to do `make credentials deploy_backend` in one go.
