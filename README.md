@@ -29,19 +29,13 @@ HOSTED_ZONE_DEV=Z0233749MOQEGRE2N9TX
 HOSTED_ZONE_TEST=Z07839311QAC1PUU4ON91
 HOSTED_ZONE_PROD=Z02354332J0BS7Y5CNJ0L
 
-# Specify the id of CloudFront distribution.
-# It is only available after the CDN has been deployed!
-CLOUDFRONT_ID_DEV=E2ZSRX6VJFA0AZ
-CLOUDFRONT_ID_TEST=XXX
-CLOUDFRONT_ID_PROD=XXX
-
 # Override possibilites
 # AWS_REGION defaults to eu-north-1 if not set
 # This is where the workload will be deployed
 AWS_REGION=us-east-2
 
 # SSO_ROLE is the name of the permission set used for deploying the workload.
-# Default is ALA-Developer
+# Default is ALAB-Developer
 SSO_ROLE=AWSAdministratorAccess
 ```
 
@@ -66,26 +60,36 @@ git submodule init
 git submodule update
 ```
 
-You will need to run `git submodule update` every time `makefiles` have been updated.
+You will need to run `git submodule update` every time the submodule `makefiles` (or any submodule, really) have been updated.
 
 ## Make environment
-Run `make prereqs` to download all the tools you need.
+There are some tools you'll need to install. This is handled by a special target.
+
+``` bash
+make prereqs
+```
+
+will download the tools required **and** install some python scripts. Make sure you are in a virtual environment prior to executing the target!
 
 ## AWS credentials
 
-First run `make ssoconfigure`. What you need to fill in is printed on screen.
+Run the following targets:
+```
+make ssoconfigure credentials DEPLOYSTAGE=[DEV|TEST|PROD]
+```
 
-Then run `make credentials DEPLOYSTAGE=[DEV|TEST|PROD]` to get the login tokens you need for the stage you want to dpeloy to.
+The first target, `ssoconfigure`, will set up sso logins in aws. Pay attention to the output on the screen, as you need to fill some information during the config process.
 
 You'll need to rerun `make credentials` when the tokens have expired to get a fresh set new token.
+
+You can read more here:
+
+* https://aws.amazon.com/premiumsupport/knowledge-center/sso-temporary-credentials/
+* https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sso.html#sso-configure-profile
 
 ## Bootstrapping CDK
 
 First time you deploy on an account you need to `make cdk_bootstrap DEPLOYSTAGE=[DEV|TEST|PROD]`.
-
-You can read more here:
-* https://aws.amazon.com/premiumsupport/knowledge-center/sso-temporary-credentials/
-* https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sso.html#sso-configure-profile
 
 
 # Deployment
@@ -99,7 +103,7 @@ make deploy_backend DEPLOYSTAGE=[DEV|TEST|PROD]
 
 ## Deploy frontend
 ``` bash
-make deploy_backend DEPLOYSTAGE=[DEV|TEST|PROD]
+make deploy_frontend DEPLOYSTAGE=[DEV|TEST|PROD]
 ```
 
 ## Destroy stack
