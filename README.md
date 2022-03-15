@@ -90,7 +90,7 @@ You can read more here:
 
 # Deployment
 
-Make knows (by means of `makevars`) almost everything it needs to deploy things. The only extra thing you need to supply is the `DEPLOYSTAGE`.
+Make knows (by means of `makevars.mak` and name magic) almost everything it needs to deploy things. The only extra thing you need to supply is the `DEPLOYSTAGE`.
 
 ## Deploy backend
 ``` bash
@@ -117,6 +117,61 @@ In cmd, simply `set AWS_PROFILE=workload-stage`.
 ## Powershell
 
 Powershell sets environment variables like this: `$Env:AWS_PROFILE = "workload-stage"`.
+
+## Reaching backend resources
+
+Typically there are a number of `.env` or `.env.production` files lingering in the file tree. These little fellows contain variables that are used by the python code when running locally or are backed into the frontend when starting the server (or building the production code).
+
+To avoid having to maintain the variables, you simply create a `.env[.*].template` file in a directory. There are scripts running when you do `make backend_deploy` that extracts information from the stack, traverses the file tree and for each `.env[.*].template` file generates a `.env[.*]` file. This is done in such a way that all stack variables (which are put there manually or by the various constructs) extracted and sorted alphabetically, **prepended** to the *.template file and written to the corresponding `.env` file.
+
+Since dotenv (both in python and javascript) can do token replacement, you can build new variables using bits and pieces from the stack. If you have a template file that looks like
+```
+#===
+API_STAGE=prod
+
+VUE_APP_HOST=https://$api_id.execute-api.$REGION.amazonaws.com/$API_STAGE
+VUE_APP_WEBSOCKETAPI=wss://$wsapi_id.execute-api.$REGION.amazonaws.com/$STAGE
+```
+
+You will end up with an .env-file that looks something like
+```
+api_id=xr1j6tthbe
+CDNUrl=d3kdnwydd4ijh8.cloudfront.net
+CDN_ID=E3GMWE2MBJ44BM
+COMPUTED_DATA_DIR=computed_data
+COMPUTED_PRICE_TABLE_TOPIC_ARN=arn:aws:sns:us-east-2:383105234713:transportpricing-computed_price_table
+CONNECTION_TABLE=transportpricing-wsregistry
+CUSTOMERS_TABLE=transportpricing-customer-cases
+databucket=transportpricing-databucket-test
+DESTINATION_SURCHARGES_TABLE=transportpricing-destination-surcharges
+FUEL_SURCHARGE_TABLE=transportpricing-fuel-surcharges
+MARKUP_SAVED_TOPIC_ARN=arn:aws:sns:us-east-2:383105234713:transportpricing-markup_saved
+PNR_DESTINATION_SURCHARGES_TABLE=transportpricing-pnr-destination-surcharges
+pricing_computed=arn:aws:sns:us-east-2:383105234713:transportpricing-pricing_computed
+REGION=us-east-2
+s3_file_deleted=arn:aws:sns:us-east-2:383105234713:transportpricing-s3_file_deleted
+s3_file_uploaded=arn:aws:sns:us-east-2:383105234713:transportpricing-s3_file_uploaded
+SETTINGS_TABLE=transportpricing-settingstable
+STAGE=TEST
+SUMMARIES_TABLE=transportpricing-summaries
+transp_cdn_url=http://transportpricing-webcontent-test.s3-website.us-east-2.amazonaws.com
+UPDATED_SUMMARY_TOPIC_ARN=arn:aws:sns:us-east-2:383105234713:transportpricing-updated_summary
+UPLOADED_DATA_DIR=uploaded_data
+UPLOAD_TABLE=transportpricing-uploadtable
+USER=jesper.hog
+UVICORN_PORT=8000
+webcontent=transportpricing-webcontent-test
+wsapi_id=85mojtthc1
+#===
+API_STAGE=prod
+
+VUE_APP_HOST=https://$api_id.execute-api.$REGION.amazonaws.com/$API_STAGE
+VUE_APP_WEBSOCKETAPI=wss://$wsapi_id.execute-api.$REGION.amazonaws.com/$STAGE
+```
+
+As you can see there are several lines added **to the beginning** of the .env-file.
+
+If you have added a new empty .template file and need to generate the .env-file, simply run `make update_env_vars DEPLOYSTAGE=...`.
 
 # When credentials no longer work
 
