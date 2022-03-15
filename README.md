@@ -4,7 +4,7 @@ The makefile is a way to simplify recurring tasks, such as deploying the workloa
 
 # Configuration
 
-In the root directory (i.e. the one above where you found this file), you should create a file named `makevars`.
+In the root directory (i.e. the one above where you found this file), you should create a file named `makevars.mak`.
 
 In it, some key parameters must be defined.
 ``` bash
@@ -47,13 +47,14 @@ SSO_ROLE=AWSAdministratorAccess
 
 Note that there are some values that will not be available until you have ran `make deploy_backend`!
 
-There is another, optional, file, named `$\makevars.<username>` (The username is found as `echo %USERNAME%` in windows).
+There is another, optional, file, named `$\makevars.<username>.mak` (The username is found as `echo %USERNAME%` in windows).
 
 It should contain user specific information.
 ```
 CONFLUENCE_USER=<confluence user name, typically your email address>
 CONFLUENCE_API_KEY=XXX
 ```
+The confluence related variables are required if you want to publish any documentation to confluence.
 
 # Initialization
 
@@ -105,6 +106,17 @@ make deploy_backend DEPLOYSTAGE=[DEV|TEST|PROD]
 ``` bash
 make cdk_destroy DEPLOYSTAGE=[DEV|TEST|PROD]
 ```
+
+# Running local backend
+
+In order to make local backend play nicely with your "true" backend resources, you need to set the environment variable `AWS_PROFILE` to the name of the profile you just deployed to. This is typically `<workload>-<stage>`.
+
+## CMD
+In cmd, simply `set AWS_PROFILE=workload-stage`.
+
+## Powershell
+
+Powershell sets environment variables like this: `$Env:AWS_PROFILE = "workload-stage"`.
 
 # When credentials no longer work
 

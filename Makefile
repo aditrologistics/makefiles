@@ -6,8 +6,8 @@ SSO_REGION=eu-north-1
 thisfile:=$(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST))
 makedir=$(dir $(thisfile))
 include $(makedir)/makehelpers.mak
-include ./makevars
-include ./makevars.$(USERNAME)
+include ./makevars.mak
+include ./makevars.$(USERNAME).mak
 SSO_ROLE?=ALAB-Developer
 AWS_REGION?=eu-north-1
 DEPLOYSTAGE?=$(if $(DEPLOY),$(DEPLOY),DEV)
@@ -64,7 +64,9 @@ cdk_context=$(cdk_ctx_hosted_zone) \
 		-c WORKLOAD=$(WORKLOAD_NAME) \
 		-c REGION=$(AWS_REGION)
 
-deploy_backend backend_deploy:
+deploy_backend backend_deploy backend: cdk_deploy update_env_vars
+
+cdk_deploy:
 	cd backend && \
 	cdk deploy $(cdk_verbosity) \
 		--profile $(AWS_PROFILE) \
@@ -90,7 +92,17 @@ build_dist:
 
 deploy_s3:
 	$(call require,WEB_BUCKET_NAME,$@)
-	aws s3 cp frontend/dist s3://${WEB_BUCKET_NAME} --recursive --profile $(AWS_PROFILE)
+	aws s3 cp \
+		--profile $(AWS_PROFILE) \
+		frontend/dist s3://${WEB_BUCKET_NAME} --recursive
+
+# Note: This assumes there is only one distribution!
+# When that assumption breaks down, some filtering has to be done
+# to find the correct one.
+CLOUDFRONT_ID=$(shell aws cloudfront list-distributions \
+		--profile $(AWS_PROFILE) \
+		| $(JQ) '.DistributionList.Items[0].Id' \
+		| sed -e 's/"//g')
 
 invalidate_cdn:
 	$(call require,CLOUDFRONT_ID,$@)
@@ -99,13 +111,12 @@ invalidate_cdn:
 		--distribution-id ${CLOUDFRONT_ID} \
 		--paths /index.html
 
+
 deploy_frontend frontend_deploy: build_dist deploy_s3 invalidate_cdn
 
 sourcefile=README.md
 makedocs: CONFLUENCE_SPACE=LOG
 makedocs: CONFLUENCE_ANCESTOR="Creating new workloads"
-#184811522
-#Creating+new+workloads
 makedocs: sourcefile=makefiles/README.md
 makedocs: docs
 
@@ -189,17 +200,35 @@ $(STAGEDIR):
 
 prereqs: $(STAGEDIR) $(JQ) $(STAGEDIR)/.installed.md2conf
 
-getoutputs: $(JQ)
-	# aws --profile $(AWS_PROFILE) cloudformation list-stacks \
-	# 	--no-paginate \
-	# 	--stack-status-filter UPDATE_COMPLETE \
-	# 	| $(JQ) '.StackSummaries|map(select(.StackName == "$(WORKLOAD_NAME)"))[0].StackId'
+STACKVARS=$(STAGEDIR)/$(WORKLOAD_NAME)-$(DEPLOYSTAGE)_outputs.json
+DOTENVFILES=$(STAGEDIR)/$(WORKLOAD_NAME)-$(DEPLOYSTAGE)_dotenvs.txt
+
+
+.PHONY: $(STACKVARS) $(DOTENVFILES)
+
+$(DOTENVFILES):
+	/usr/bin/find -iname ".env*" \
+		-not -type d \
+		-not -path "*/node_modules/*" \
+		-not -path "*/.env/*" \
+		-not -path "*/cdk.out/*" \
+		> $@
+
+ENV_UPDATER=python $(makedir)/utils/env_updater.py
+update_env_vars: $(STACKVARS) $(DOTENVFILES)
+	$(ENV_UPDATER) \
+		--vars $(filter %.json,$^) \
+		--envfiles $(filter %.txt,$^) \
+		-v UVICORN_PORT=8000 \
+		-v REGION=$(AWS_REGION)
+
+
+
+$(STACKVARS) getoutputs: $(JQ)
 	aws --profile $(AWS_PROFILE) cloudformation describe-stacks \
 		--stack-name $(WORKLOAD_NAME) \
-		| $(JQ) '.Stacks[0].Outputs|map(.OutputValue)'
-
-#		\
-#		> $(STAGEDIR)/$(WORKLOAD_NAME)_outputs.json
+		| $(JQ) '.Stacks[0].Outputs|map(.OutputValue)' \
+		> $(STACKVARS)
 
 # .stage/jq.exe '.StackSummaries|map(select(.StackName == "transportpricing"))[0]'
 # .stage/jq.exe '.StackSummaries|map(select(.StackName == "transportpricing")[0]'
