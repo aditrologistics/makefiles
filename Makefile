@@ -1,54 +1,86 @@
 .PHONY: deploycdk deployfrontend
 
-SSO_PORTAL=https://aditrologistics.awsapps.com/start
-SSO_REGION=eu-north-1
 # $(if $(DEBUG),,.SILENT:)
 thisfile:=$(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST))
 makedir=$(dir $(thisfile))
 include $(makedir)/makehelpers.mak
 include ./makevars.mak
 -include ./makevars.$(USERNAME).mak
+
+SSO_PORTAL=https://aditrologistics.awsapps.com/start
+SSO_REGION=eu-north-1
 SSO_ROLE?=ALAB-Developer
 AWS_REGION?=eu-north-1
 DEPLOYSTAGE?=$(if $(DEPLOY),$(DEPLOY),DEV)
 
-STAGE_POSTFIX_DEV=dev
-STAGE_POSTFIX_TEST=test
-STAGE_POSTFIX_PROD=
-
+# The profiles are named as <workload>-<stage>
 AWS_PROFILE_DEV=$(WORKLOAD_NAME)-dev
 AWS_PROFILE_TEST=$(WORKLOAD_NAME)-test
 AWS_PROFILE_PROD=$(WORKLOAD_NAME)-prod
+AWS_PROFILE=$(AWS_PROFILE_$(DEPLOYSTAGE))
 
+# Domains are named <workload>-<stage> except PROD which has no postfix.
 SUBDOMAIN_DEV=$(WORKLOAD_NAME)-dev
 SUBDOMAIN_TEST=$(WORKLOAD_NAME)-test
 SUBDOMAIN_PROD=$(WORKLOAD_NAME)
-
-ANCESTOR=$(if $(CONFLUENCE_ANCESTOR),-a $(CONFLUENCE_ANCESTOR))
+SUBDOMAIN=$(SUBDOMAIN_$(DEPLOYSTAGE))
 
 AWS_ACCOUNT=$(AWS_ACCOUNT_$(DEPLOYSTAGE))
-AWS_PROFILE=$(AWS_PROFILE_$(DEPLOYSTAGE))
 
-SUBDOMAIN=$(SUBDOMAIN_$(DEPLOYSTAGE))
-HOSTED_ZONE=$(HOSTED_ZONE_$(DEPLOYSTAGE))
-CLOUDFRONT_ID=$(CLOUDFRONT_ID_$(DEPLOYSTAGE))
-
+ANCESTOR=$(if $(CONFLUENCE_ANCESTOR),-a $(CONFLUENCE_ANCESTOR))
 CONFLUENCE_ORGANIZATION=aditrologistics
 
 STAGEDIR=.stage
 JQ=$(STAGEDIR)/jq.exe
+cdk_verbosity = $(if $(DEBUG),-vv)
+CDK=cdk --profile $(AWS_PROFILE) $(cdk_verbosity)
+AWS=aws --profile $(AWS_PROFILE)
+ECHO=@echo
 MD2CONF=$(STAGEDIR)/md_to_conf/md2conf.py
 AWS_TOKENS=$(STAGEDIR)/.aws.tokens
 AWS_TOKENVARS=$(STAGEDIR)/.aws.tokenvars
-UPLOADMARKDOWN=$(MD2CONF) --nogo --markdownsrc bitbucket
+UPLOADMARKDOWN=python $(MD2CONF) --nogo --markdownsrc bitbucket
+ENV_UPDATER=python $(makedir)/utils/env_updater.py
+
+# These files need to be included after variables are defined
+include $(STAGEDIR)/hosted-zone.$(DEPLOYSTAGE).mak
+-include $(STAGEDIR)/cloudfront-id.$(DEPLOYSTAGE).mak
+
+# Extract hosted zone from the account
+# assuming there's exactly one - no validation of that assumption right now
+GETZONEID=$(shell $(AWS) route53 list-hosted-zones \
+	| $(JQ) .HostedZones[0].Id \
+	| sed -e 's/"//g' -e 's!/hostedzone/!!')
+
+# Note: This assumes there is only one distribution!
+# When that assumption breaks down, some filtering has to be done
+# to find the correct one.
+GETCLOUDFRONTID=$(shell $(AWS) cloudfront list-distributions \
+		| $(JQ) '.DistributionList.Items[0].Id' \
+		| sed -e 's/"//g')
+
+# This make snippet will be generated on inclusion above
+$(STAGEDIR)/hosted-zone.%.mak: $(JQ)
+	$(ECHO) Generating $@
+	$(ECHO) Fetching hosted zone id...
+	$(ECHO) HOSTED_ZONE=$(GETZONEID) > $@
+
+# This make snippet will be generated on inclusion above
+$(STAGEDIR)/cloudfront-id.%.mak: $(JQ)
+	$(ECHO) Generating $@
+	$(ECHO) Fetching cloudfront/distribution id...
+	$(ECHO) CLOUDFRONT_ID=$(subst null,,$(GETCLOUDFRONTID)) > $@
 
 # This file will be generated after backend_deploy
+# or `make update_env_vars`.
 # If it is not available the variable WEB_BUCKET_NAME
 # will not be set and it will not be possible to
 # deploy frontend.
 -include $(STAGEDIR)/.env.webbucket.mak
 
-ECHO=@echo
+foo:
+	echo $(CLOUDFRONT_ID)
+	echo $(HOSTED_ZONE)
 
 $(warning Deployment stage: $(DEPLOYSTAGE))
 
@@ -63,67 +95,61 @@ check check_environment checkenvironment:
 	$(ECHO) '- HOMEPATH: $(HOMEPATH)'
 	$(ECHO) "- USERPROFILE: $(USERPROFILE)"
 
-HOMEPATH=\Users\jesper.hog"
-cdk_ctx_hosted_zone=$(if $(HOSTED_ZONE),-c hosted_zone=$(HOSTED_ZONE))
 
-cdk_verbosity = $(if $(DEBUG),-vv)
-
-cdk_context=$(cdk_ctx_hosted_zone) \
+cdk_context=\
 		-c STAGE=$(DEPLOYSTAGE) \
 		-c AWS_ACCOUNT=$(AWS_ACCOUNT) \
 		-c SUBDOMAIN=$(SUBDOMAIN) \
 		-c WORKLOAD=$(WORKLOAD_NAME) \
-		-c REGION=$(AWS_REGION)
+		-c REGION=$(AWS_REGION) \
+		-c hosted_zone=$(HOSTED_ZONE)
 
 deploy_backend backend_deploy backend: cdk_deploy update_env_vars
 
 cdk_deploy:
 	cd backend && \
-	cdk deploy $(cdk_verbosity) \
-		--profile $(AWS_PROFILE) \
+	$(CDK) deploy \
 		$(cdk_context)
 
 
 cdk_bootstrap:
 	cd backend && \
-	cdk bootstrap $(cdk_verbosity) \
-		--profile $(AWS_PROFILE) \
+	$(CDK) bootstrap \
 		$(cdk_context)
 
 
 cdk_destroy backend_destroy destroy destroy_backend:
 	cd backend && \
-	cdk destroy $(cdk_verbosity) \
-		--profile $(AWS_PROFILE) \
+	$(CDK) destroy \
 		$(cdk_context)
+
 
 build_dist:
 	cd frontend && \
 	npm run build
 
+
 deploy_s3:
 	$(call require,WEB_BUCKET_NAME,$@)
-	aws s3 cp \
-		--profile $(AWS_PROFILE) \
+	$(AWS) s3 cp \
 		frontend/dist s3://${WEB_BUCKET_NAME} --recursive
 
-# Note: This assumes there is only one distribution!
-# When that assumption breaks down, some filtering has to be done
-# to find the correct one.
-CLOUDFRONT_ID=$(shell aws cloudfront list-distributions \
-		--profile $(AWS_PROFILE) \
-		| $(JQ) '.DistributionList.Items[0].Id' \
-		| sed -e 's/"//g')
 
-invalidate_cdn:
+# Helper target to remove (and redo next make invocation!)
+# the snippet that defines CLOUDFRONT_ID
+remove_cloudfront-id_if_empty:
+	$(if $(CLOUDFRONT_ID),,rm $(STAGEDIR)/cloudfront-id.$(DEPLOYSTAGE).mak)
+
+
+invalidate_cdn: remove_cloudfront-id_if_empty
 	$(call require,CLOUDFRONT_ID,$@)
-	aws cloudfront create-invalidation \
-		--profile $(AWS_PROFILE) \
+	$(AWS) cloudfront create-invalidation \
 		--distribution-id ${CLOUDFRONT_ID} \
 		--paths /index.html
 
 
 deploy_frontend frontend_deploy: build_dist deploy_s3 invalidate_cdn
+
 
 sourcefile=README.md
 makedocs: CONFLUENCE_SPACE=LOG
@@ -136,21 +162,13 @@ docs: prereqs
 	$(call require,CONFLUENCE_SPACE)
 	$(call require,CONFLUENCE_USER)
 	$(call require,CONFLUENCE_API_KEY)
-	python $(MD2CONF) \
-		--nogo \
-		--markdownsrc bitbucket \
+	$(UPLOADMARKDOWN) \
 		-u $(CONFLUENCE_USER) \
 		-p $(CONFLUENCE_API_KEY) \
 		-o $(CONFLUENCE_ORGANIZATION) \
 		$(ANCESTOR) \
 		$(sourcefile) $(CONFLUENCE_SPACE)
 
-
-test: $(STAGEDIR)
-	which cdk
-	# echo $(shell ls ~/.aws/sso/cache)
-	echo "$(shell ls /c)"
-	echo $(HOMEDIR)
 
 credentials getcredentials: $(JQ) ssologin
 	# https://aws.amazon.com/premiumsupport/knowledge-center/sso-temporary-credentials/
@@ -180,7 +198,8 @@ ensure_profiles:
 
 
 ssologin: ensure_profiles
-	aws sso login --profile $(AWS_PROFILE)
+	$(AWS) sso login
+
 
 ssosetup ssoconfigure ssoconfig:
 	@echo -e "\n\n"
@@ -197,17 +216,21 @@ $(JQ):
 	$(call require,JQ)
 	curl https://github.com/stedolan/jq/releases/download/jq-1.6/jq-win64.exe -L -o $@
 
+
 $(STAGEDIR)/.installed.md2conf: $(MD2CONF)
 	$(call require,MD2CONF)
 	pip install -r $(dir $(MD2CONF))requirements.txt
 	touch $@
 
+
 $(MD2CONF):
 	$(call require,MD2CONF)
 	git clone https://github.com/RittmanMead/md_to_conf.git $(dir $@)
 
+
 $(STAGEDIR):
 	mkdir $@
+
 
 prereqs: $(STAGEDIR) $(JQ) $(STAGEDIR)/.installed.md2conf
 
@@ -215,12 +238,14 @@ STACKVARS=$(STAGEDIR)/$(WORKLOAD_NAME)-$(DEPLOYSTAGE)_outputs.json
 DOTENVFILES=$(STAGEDIR)/$(WORKLOAD_NAME)-$(DEPLOYSTAGE)_dotenvs.txt
 WEBBUCKET_MAK=$(STAGEDIR)/.env.webbucket_all.mak.template
 
-
+# Always redo these files
 .PHONY: $(STACKVARS) $(DOTENVFILES) $(WEBBUCKET_MAK)
 
-# This target simply empties the target file
+
+# This recipe simply empties the target file
 $(WEBBUCKET_MAK):
 	echo > $@
+
 
 $(DOTENVFILES): $(WEBBUCKET_MAK)
 	/usr/bin/find -iname ".env*" \
@@ -230,7 +255,7 @@ $(DOTENVFILES): $(WEBBUCKET_MAK)
 		-not -path "*/cdk.out/*" \
 		> $@
 
-ENV_UPDATER=python $(makedir)/utils/env_updater.py
+
 update_env_vars: $(STACKVARS) $(DOTENVFILES) $(WEBBUCKET_MAK)
 	$(ENV_UPDATER) \
 		--vars $(filter %.json,$^) \
@@ -247,7 +272,7 @@ update_env_vars: $(STACKVARS) $(DOTENVFILES) $(WEBBUCKET_MAK)
 
 
 $(STACKVARS) getoutputs: $(JQ)
-	aws --profile $(AWS_PROFILE) cloudformation describe-stacks \
+	$(AWS) cloudformation describe-stacks \
 		--stack-name $(WORKLOAD_NAME) \
 		| $(JQ) '.Stacks[0].Outputs|map(.OutputValue)' \
 		> $(STACKVARS)
