@@ -7,7 +7,7 @@ thisfile:=$(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST))
 makedir=$(dir $(thisfile))
 include $(makedir)/makehelpers.mak
 include ./makevars.mak
-include ./makevars.$(USERNAME).mak
+-include ./makevars.$(USERNAME).mak
 SSO_ROLE?=ALAB-Developer
 AWS_REGION?=eu-north-1
 DEPLOYSTAGE?=$(if $(DEPLOY),$(DEPLOY),DEV)
@@ -42,17 +42,28 @@ AWS_TOKENS=$(STAGEDIR)/.aws.tokens
 AWS_TOKENVARS=$(STAGEDIR)/.aws.tokenvars
 UPLOADMARKDOWN=$(MD2CONF) --nogo --markdownsrc bitbucket
 
-ifeq ("$(DEPLOYSTAGE)","PROD")
-WEB_BUCKET_NAME=$(WORKLOAD_NAME)-webcontent
-endif
-ifeq ("$(DEPLOYSTAGE)","DEV")
-WEB_BUCKET_NAME=$(WORKLOAD_NAME)-webcontent-dev-$(subst .,-,$(USERNAME))
-endif
-ifeq ("$(DEPLOYSTAGE)","TEST")
-WEB_BUCKET_NAME=$(WORKLOAD_NAME)-webcontent-test
-endif
+# This file will be generated after backend_deploy
+# If it is not available the variable WEB_BUCKET_NAME
+# will not be set and it will not be possible to
+# deploy frontend.
+-include $(STAGEDIR)/.env.webbucket.mak
+
+ECHO=@echo
 
 $(warning Deployment stage: $(DEPLOYSTAGE))
+
+check check_environment checkenvironment:
+	$(ECHO) "CDK looks at some environment variables to find configuration files."
+	$(ECHO) "These are HOMEDRIVE, HOMEPATH and USERPROFILE."
+	$(ECHO) "HOMEPATH is constructed as /Users/%USERNAME%"
+	$(ECHO) "USERPROFILE is %HOMEDRIVE%%HOMEPATH%"
+	$(ECHO) "HOMEDRIVE should be C:"
+	$(ECHO) "Your settings:"
+	$(ECHO) "- HOMEDRIVE: $(HOMEDRIVE)"
+	$(ECHO) '- HOMEPATH: $(HOMEPATH)'
+	$(ECHO) "- USERPROFILE: $(USERPROFILE)"
+
+HOMEPATH=\Users\jesper.hog"
 cdk_ctx_hosted_zone=$(if $(HOSTED_ZONE),-c hosted_zone=$(HOSTED_ZONE))
 
 cdk_verbosity = $(if $(DEBUG),-vv)
@@ -202,11 +213,16 @@ prereqs: $(STAGEDIR) $(JQ) $(STAGEDIR)/.installed.md2conf
 
 STACKVARS=$(STAGEDIR)/$(WORKLOAD_NAME)-$(DEPLOYSTAGE)_outputs.json
 DOTENVFILES=$(STAGEDIR)/$(WORKLOAD_NAME)-$(DEPLOYSTAGE)_dotenvs.txt
+WEBBUCKET_MAK=$(STAGEDIR)/.env.webbucket_all.mak.template
 
 
-.PHONY: $(STACKVARS) $(DOTENVFILES)
+.PHONY: $(STACKVARS) $(DOTENVFILES) $(WEBBUCKET_MAK)
 
-$(DOTENVFILES):
+# This target simply empties the target file
+$(WEBBUCKET_MAK):
+	echo > $@
+
+$(DOTENVFILES): $(WEBBUCKET_MAK)
 	/usr/bin/find -iname ".env*" \
 		-not -type d \
 		-not -path "*/node_modules/*" \
@@ -215,13 +231,19 @@ $(DOTENVFILES):
 		> $@
 
 ENV_UPDATER=python $(makedir)/utils/env_updater.py
-update_env_vars: $(STACKVARS) $(DOTENVFILES)
+update_env_vars: $(STACKVARS) $(DOTENVFILES) $(WEBBUCKET_MAK)
 	$(ENV_UPDATER) \
 		--vars $(filter %.json,$^) \
 		--envfiles $(filter %.txt,$^) \
 		-v UVICORN_PORT=8000 \
 		-v REGION=$(AWS_REGION)
 
+	# Trying to make as few assumptions as possible, but still need to get the name of the variable
+	# containing the name of the web deployment bucket. It is assumed to be 'webcontent' as per the
+	# CDK construct Website and will be remapped to WEB_BUCKET_NAME
+	grep "^webcontent=" $(subst .template,,$(WEBBUCKET_MAK)) \
+		| sed -e "s/webcontent/WEB_BUCKET_NAME/" \
+		> $(subst _all.mak.template,.mak,$(WEBBUCKET_MAK))
 
 
 $(STACKVARS) getoutputs: $(JQ)
@@ -229,6 +251,3 @@ $(STACKVARS) getoutputs: $(JQ)
 		--stack-name $(WORKLOAD_NAME) \
 		| $(JQ) '.Stacks[0].Outputs|map(.OutputValue)' \
 		> $(STACKVARS)
-
-# .stage/jq.exe '.StackSummaries|map(select(.StackName == "transportpricing"))[0]'
-# .stage/jq.exe '.StackSummaries|map(select(.StackName == "transportpricing")[0]'
