@@ -128,6 +128,16 @@ build_dist:
 	cd frontend && \
 	npm run build
 
+serve_frontend frontend_server:
+	cd frontend && \
+	npm run serve
+
+serve_backend backend_server:
+	cd backend && \
+	AWS_PROFILE=$(AWS_PROFILE) uvicorn \
+		--app-dir api \
+		--reload api:app \
+		--no-use-colors
 
 deploy_s3:
 	$(call require,WEB_BUCKET_NAME,$@)
@@ -183,7 +193,9 @@ credentials getcredentials: $(JQ) ssologin
 
 	python $(makedir)/utils/credentials_updater.py \
 		--ssofile $(AWS_TOKENS) \
-		--profile $(AWS_PROFILE)
+		--profile $(AWS_PROFILE) \
+		--bat $(STAGEDIR)/awsvars.bat \
+		--ps $(STAGEDIR)/awsvars.ps1 \
 
 
 ensure_profiles:

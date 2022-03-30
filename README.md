@@ -22,13 +22,6 @@ AWS_ACCOUNT_DEV=077410211940
 AWS_ACCOUNT_TEST=383105234713
 AWS_ACCOUNT_PROD=584748006736
 
-# Specify the id of the Hosted Zone.
-# They ALL need to be defined!!
-# If e.g. TEST has no account, specify XXX
-HOSTED_ZONE_DEV=Z0233749MOQEGRE2N9TX
-HOSTED_ZONE_TEST=Z07839311QAC1PUU4ON91
-HOSTED_ZONE_PROD=Z02354332J0BS7Y5CNJ0L
-
 # Override possibilites
 # AWS_REGION defaults to eu-north-1 if not set
 # This is where the workload will be deployed
@@ -111,16 +104,33 @@ make deploy_frontend DEPLOYSTAGE=[DEV|TEST|PROD]
 make cdk_destroy DEPLOYSTAGE=[DEV|TEST|PROD]
 ```
 
-# Running local backend
+# Local servers
+
+## Frontend
+
+The frontend can be started by `make serve_frontend`.
+## Running local backend
 
 In order to make local backend play nicely with your "true" backend resources, you need to set the environment variable `AWS_PROFILE` to the name of the profile you just deployed to. This is typically `<workload>-<stage>`.
 
-## CMD
-In cmd, simply `set AWS_PROFILE=workload-stage`.
+By default, when running `make credentials` there are two helper files generated in `.stage:
 
-## Powershell
+* `.stage\awsvars.bat`
+* `.stage\awsvars.ps1`
 
-Powershell sets environment variables like this: `$Env:AWS_PROFILE = "workload-stage"`.
+They contain scripts to set the environment variables, so you can run `.stage\.awsvars.bat` in cmd or `.stage\awsvars.ps1` in PowerShell prior to starting uvicorn.
+
+## Starting from makefile
+
+`make serve_backend` will start uvicorn with the AWS_PROFILE variable set.
+
+## How to do it manually:
+### CMD
+In cmd, simply `set AWS_PROFILE=<workload>-<stage>`.
+
+### Powershell
+
+Powershell sets environment variables like this: `$Env:AWS_PROFILE = "<workload>-<stage>"`.
 
 ## Reaching backend resources
 
@@ -182,7 +192,5 @@ If you have added a new empty .template file and need to generate the .env-file,
 If you get a warning similar to
 ```
 current credentials could not be used to assume 'arn:aws:iam::XXXXXXXXXXXX:role/cdk-hnb659fds-lookup-role-XXXXXXXXXXXX-us-east-2', but are for the right account. Proceeding anyway.
-(To get rid of this warning, please upgrade to bootstrap version >= 8)
-current credentials could not be used to assume 'arn:aws:iam::XXXXXXXXXXXX:role/cdk-hnb659fds-deploy-role-XXXXXXXXXXXX-us-east-2', but are for the right account. Proceeding anyway.
 ```
  The most likely reason is that your tokens have expired. Simply invoke `make credentials` to refresh them and start again. It is of course possible to do `make credentials deploy_backend` in one go.

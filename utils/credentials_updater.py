@@ -11,6 +11,8 @@ def define_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--ssofile", required=True, metavar="FILE", help="json file with recent credentials.")
     parser.add_argument("--profile", required=True, metavar="PROFILE", help="Profile to update.")
+    parser.add_argument("--bat", required=False, metavar="FILE", help="Batchfile to set env vars/CMD.")
+    parser.add_argument("--ps", required=False, metavar="FILE", help="Batchfile to set env vars/Powershell.")
 
     return parser.parse_args()
 
@@ -30,5 +32,21 @@ def update_credentials(profile, credentials, credentialsfile):
     with open(credentialsfile, "w") as f:
         cfg.write(f)
 
+
+def create_batch_file(profile, batchfile):
+    with open(batchfile, "w") as f:
+        f.write(f"SET AWS_PROFILE={profile}\n")
+
+
+def create_ps_file(profile, batchfile):
+    with open(batchfile, "w") as f:
+        f.write(f'$Env:AWS_PROFILE = "{profile}"\n')
+
+
 args = define_args()
-update_credentials(args.profile, get_sso_data(args.ssofile), aws_credentials)
+credentials = get_sso_data(args.ssofile)
+update_credentials(args.profile, credentials, aws_credentials)
+if args.bat:
+    create_batch_file(args.profile, args.bat)
+if args.ps:
+    create_ps_file(args.profile, args.ps)

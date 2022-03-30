@@ -1,7 +1,5 @@
 import argparse
 import json
-import os
-from pprint import pprint
 from typing import Dict, List
 
 
@@ -44,7 +42,7 @@ def generate_file(filename: str, vars_as_list: List[str]):
 
 
 def scan_files(filelist: List[str], vars: Dict[str, str]):
-    vars_as_list = sorted([f"{k}={v}" for k, v in vars.items()], key= lambda x: x.upper())
+    vars_as_list = sorted([f"{k}={v}" for k, v in vars.items()], key=lambda x: x.upper())
     for file in filelist:
         if file.endswith(".template"):
             generate_file(file, vars_as_list)
