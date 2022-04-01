@@ -7,3 +7,5 @@ HOMEDIR=$(subst C:,/c,$(subst \,/,$(USERPROFILE)))
 else
 HOMEDIR=~
 endif
+
+MKTARGETDIR=mkdir -p $(dir $@)

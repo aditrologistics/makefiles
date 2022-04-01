@@ -42,6 +42,8 @@ AWS_TOKENVARS=$(STAGEDIR)/.aws.tokenvars
 UPLOADMARKDOWN=python $(MD2CONF) --nogo --markdownsrc bitbucket
 ENV_UPDATER=python $(makedir)/utils/env_updater.py
 
+DEFINED_STAGES=$(if $(AWS_ACCOUNT_DEV),dev) $(if $(AWS_ACCOUNT_TEST),test) $(if $(AWS_ACCOUNT_PROD),prod)
+
 # These files need to be included after variables are defined
 include $(STAGEDIR)/hosted-zone.$(DEPLOYSTAGE).mak
 -include $(STAGEDIR)/cloudfront-id.$(DEPLOYSTAGE).mak
@@ -205,7 +207,7 @@ ensure_profiles:
 		--ssostarturl $(SSO_PORTAL) \
 		--ssoregion $(SSO_REGION) \
 		--ssorole $(SSO_ROLE) \
-		--stages dev test prod \
+		--stages $(DEFINED_STAGES) \
 		--accounts $(AWS_ACCOUNT_DEV) $(AWS_ACCOUNT_TEST) $(AWS_ACCOUNT_PROD)
 
 
@@ -226,6 +228,7 @@ ssosetup ssoconfigure ssoconfig:
 
 $(JQ):
 	$(call require,JQ)
+	$(MKTARGETDIR)
 	curl https://github.com/stedolan/jq/releases/download/jq-1.6/jq-win64.exe -L -o $@
 
 
