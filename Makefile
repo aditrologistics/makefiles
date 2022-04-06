@@ -118,22 +118,13 @@ cdk_context=\
 		-c hosted_zone=$(HOSTED_ZONE)
 
 deploy_backend backend_deploy backend: cdk_deploy update_env_vars
+backend_destroy destroy destroy_backend: cdk_destroy
+bootstrap: cdk_bootstrap
+synth: cdk_synth
 
-cdk_deploy:
+cdk_%:
 	cd backend && \
-	$(CDK) deploy \
-		$(cdk_context)
-
-
-cdk_bootstrap:
-	cd backend && \
-	$(CDK) bootstrap \
-		$(cdk_context)
-
-
-cdk_destroy backend_destroy destroy destroy_backend:
-	cd backend && \
-	$(CDK) destroy \
+	$(CDK) $(subst cdk_,,$@) \
 		$(cdk_context)
 
 
