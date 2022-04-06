@@ -92,8 +92,8 @@ $(STAGEDIR)/cloudfront-id.%.mak: $(JQ)
 -include $(STAGEDIR)/.env.webbucket.mak
 
 foo:
-	echo $(CLOUDFRONT_ID)
-	echo $(HOSTED_ZONE)
+	$(ECHO) CLOUDFRONT: $(CLOUDFRONT_ID)
+	$(ECHO) HOSTED_ZONE: $(HOSTED_ZONE)
 
 $(warning Deployment stage: $(DEPLOYSTAGE))
 
@@ -134,7 +134,7 @@ backend_destroy destroy destroy_backend: cdk_destroy
 bootstrap: cdk_bootstrap
 synth: cdk_synth
 
-cdk_%:
+cdk_%: remove_hostedzone_if_empty
 	cd backend && \
 	$(CDK) $(subst cdk_,,$@) \
 		$(cdk_context)
@@ -164,7 +164,10 @@ deploy_s3:
 # Helper target to remove (and redo next make invocation!)
 # the snippet that defines CLOUDFRONT_ID
 remove_cloudfront-id_if_empty:
-	$(if $(CLOUDFRONT_ID),,rm $(STAGEDIR)/cloudfront-id.$(DEPLOYSTAGE).mak)
+	-$(if $(CLOUDFRONT_ID),,rm $(STAGEDIR)/cloudfront-id.$(DEPLOYSTAGE).mak)
+
+remove_hostedzone_if_empty:
+	-$(if $(HOSTED_ZONE),,rm $(STAGEDIR)/hosted-zone.$(DEPLOYSTAGE).mak)
 
 
 invalidate_cdn: remove_cloudfront-id_if_empty
