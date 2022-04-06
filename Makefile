@@ -98,15 +98,27 @@ foo:
 $(warning Deployment stage: $(DEPLOYSTAGE))
 
 check check_environment checkenvironment:
-	$(ECHO) "CDK looks at some environment variables to find configuration files."
-	$(ECHO) "These are HOMEDRIVE, HOMEPATH and USERPROFILE."
-	$(ECHO) "HOMEPATH is constructed as /Users/%USERNAME%"
-	$(ECHO) "USERPROFILE is %HOMEDRIVE%%HOMEPATH%"
-	$(ECHO) "HOMEDRIVE should be C:"
-	$(ECHO) "Your settings:"
-	$(ECHO) "- HOMEDRIVE: $(HOMEDRIVE)"
-	$(ECHO) '- HOMEPATH: $(HOMEPATH)'
-	$(ECHO) "- USERPROFILE: $(USERPROFILE)"
+	$(ECHO) -e "CDK looks at some environment variables to find configuration files.\n" \
+		"These are HOMEDRIVE, HOMEPATH and USERPROFILE.\n" \
+		"HOMEPATH is constructed as /Users/%USERNAME%\n" \
+		"USERPROFILE is %HOMEDRIVE%%HOMEPATH%\n" \
+		"HOMEDRIVE should be C:\n" \
+		"Your settings:\n" \
+		"- HOMEDRIVE: $(HOMEDRIVE)\n" \
+		'- HOMEPATH: $(HOMEPATH)\n' \
+		"- USERPROFILE: $(USERPROFILE)\n" \
+		"\n" \
+		"CMD:\n" \
+		"----\n" \
+		"SET HOMEDRIVE=C:\n" \
+		"SET HOMEPATH=\Users\%USERNAME%\n" \
+		"SET USERPROFILE=%HOMEDRIVE%%HOMEPATH%\n" \
+		"\n" \
+		"PowerShell:\n" \
+		"-----------\n" \
+		'$$Env:HOMEDRIVE="C:"\n' \
+		'$$Env:HOMEPATH="\Users\$(USERNAME)"\n' \
+		'$$Env:USERPROFILE="C:\Users\$(USERNAME)"\n'
 
 
 cdk_context=\
