@@ -7,6 +7,17 @@ include $(makedir)/makehelpers.mak
 include ./makevars.mak
 -include ./makevars.$(USERNAME).mak
 
+# Unless we're executing the target `check`
+# verify that HOMEDRIVE is set to C:
+# If it is not, the aws/cdk tools will not find
+# credentials and config.
+ifneq ($(MAKECMDGOALS),check)
+EXPECTED_HOMEDRIVE?=C:
+$(if $(subst $(EXPECTED_HOMEDRIVE),,$(HOMEDRIVE)),\
+	$(error Run `make check` - HOMEDRIVE is set to "$(HOMEDRIVE)",\
+			expected "$(EXPECTED_HOMEDRIVE)"))
+endif
+
 SSO_PORTAL=https://aditrologistics.awsapps.com/start
 SSO_REGION=eu-north-1
 SSO_ROLE?=ALAB-Developer
