@@ -94,6 +94,7 @@ $(STAGEDIR)/cloudfront-id.%.mak: $(JQ)
 foo:
 	$(ECHO) CLOUDFRONT: $(CLOUDFRONT_ID)
 	$(ECHO) HOSTED_ZONE: $(HOSTED_ZONE)
+	$(ECHO) variables $(subst CDK_,,$(filter CDK_%,$(.VARIABLES)))
 
 $(warning Deployment stage: $(DEPLOYSTAGE))
 
@@ -129,8 +130,8 @@ cdk_context=\
 		-c REGION=$(AWS_REGION) \
 		-c hosted_zone=$(HOSTED_ZONE)
 
-deploy_backend backend_deploy backend: cdk_deploy update_env_vars
-backend_destroy destroy destroy_backend: cdk_destroy
+deploy_backend deploybackend backend_deploy backend: cdk_deploy update_env_vars
+destroy backend_destroy destroy_backend: cdk_destroy
 bootstrap: cdk_bootstrap
 synth: cdk_synth
 
@@ -288,6 +289,12 @@ $(DOTENVFILES): $(WEBBUCKET_MAK)
 		> $@
 
 
+# Trying to make as few assumptions as possible, but still need to get the name of the variable
+# containing the name of the web deployment bucket. It is assumed to be 'webcontent' as per the
+# CDK construct Website and will be remapped to WEB_BUCKET_NAME
+# If the name is different, pass it as a parameter.
+WEB_BUCKET_NAME_S3?=webcontent
+
 update_env_vars: $(STACKVARS) $(DOTENVFILES) $(WEBBUCKET_MAK)
 	$(ENV_UPDATER) \
 		--vars $(filter %.json,$^) \
@@ -295,11 +302,8 @@ update_env_vars: $(STACKVARS) $(DOTENVFILES) $(WEBBUCKET_MAK)
 		-v UVICORN_PORT=8000 \
 		-v REGION=$(AWS_REGION)
 
-	# Trying to make as few assumptions as possible, but still need to get the name of the variable
-	# containing the name of the web deployment bucket. It is assumed to be 'webcontent' as per the
-	# CDK construct Website and will be remapped to WEB_BUCKET_NAME
-	grep "^webcontent=" $(subst .template,,$(WEBBUCKET_MAK)) \
-		| sed -e "s/webcontent/WEB_BUCKET_NAME/" \
+	grep "^$(WEB_BUCKET_NAME_S3)=" $(subst .template,,$(WEBBUCKET_MAK)) \
+		| sed -e "s/$(WEB_BUCKET_NAME_S3)/WEB_BUCKET_NAME/" \
 		> $(subst _all.mak.template,.mak,$(WEBBUCKET_MAK))
 
 
@@ -308,3 +312,9 @@ $(STACKVARS) getoutputs: $(JQ)
 		--stack-name $(WORKLOAD_NAME) \
 		| $(JQ) '.Stacks[0].Outputs|map(.OutputValue)' \
 		> $(STACKVARS)
+
+# empty_bucket:
+# 	$(call require,BUCKET_NAME,$@)
+# 	$(AWS) s3api list-object-versions \
+# 		--bucket $(BUCKET_NAME) \
+# 	| $(JQ) ".Versions | [.[] | {Key: Key}]"
