@@ -23,13 +23,18 @@ def convert_to_dict(vars: List[str]) -> Dict[str, str]:
     return result
 
 
-def read_definitions(filename):
-    with open(filename) as f:
-        data = json.load(f)
-    return convert_to_dict(data)
+def read_definitions(filename: str) -> Dict[str, str]:
+    print(f"Opening {filename}")
+    try:
+        with open(filename) as f:
+            data = json.load(f)
+        return convert_to_dict(data)
+    except json.decoder.JSONDecodeError:
+        print("Unable to parse data!")
+        raise
 
 
-def read_text_file(filename) -> List[str]:
+def read_text_file(filename: str) -> List[str]:
     with open(filename) as f:
         return [_.strip() for _ in f.readlines()]
 
