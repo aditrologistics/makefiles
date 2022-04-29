@@ -137,7 +137,7 @@ bootstrap: cdk_bootstrap
 synth: cdk_synth
 
 cdk_extra_action_deploy:
-	rm $(STACKVARS)
+	rm -f $(STACKVARS)
 
 cdk_extra_action_%:
 	echo Nothing extra to do for $@
