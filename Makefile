@@ -136,7 +136,13 @@ destroy backend_destroy destroy_backend: cdk_destroy
 bootstrap: cdk_bootstrap
 synth: cdk_synth
 
-cdk_%: remove_hostedzone_if_empty
+cdk_extra_action_deploy:
+	rm $(STACKVARS)
+
+cdk_extra_action_%:
+	echo Nothing extra to do for $@
+
+cdk_%: remove_hostedzone_if_empty cdk_extra_action_%
 	cd backend && \
 	$(CDK) $(subst cdk_,,$@) \
 		$(cdk_context)
@@ -273,7 +279,7 @@ DOTENVFILES=$(STAGEDIR)/$(WORKLOAD_NAME)-$(DEPLOYSTAGE)_dotenvs.txt
 WEBBUCKET_MAK=$(STAGEDIR)/.env.webbucket_all.mak.template
 
 # Always redo these files
-.PHONY: $(STACKVARS) $(DOTENVFILES) $(WEBBUCKET_MAK)
+.PHONY: $(DOTENVFILES) $(WEBBUCKET_MAK)
 
 
 # This recipe simply empties the target file
