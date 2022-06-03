@@ -60,6 +60,18 @@ DEFINED_STAGES=$(if $(AWS_ACCOUNT_DEV),dev) $(if $(AWS_ACCOUNT_TEST),test) $(if 
 include $(STAGEDIR)/hosted-zone.$(DEPLOYSTAGE).mak
 -include $(STAGEDIR)/cloudfront-id.$(DEPLOYSTAGE).mak
 
+# Write a warning if DEPLOYSTAGE is different from last invocation.
+-include $(STAGEDIR)/laststage.mak
+
+ifdef LASTSTAGE
+ifneq "$(LASTSTAGE)" "$(DEPLOYSTAGE)"
+$(warning ***)
+$(warning *** You changed from $(LASTSTAGE) to $(DEPLOYSTAGE). On purpose?)
+$(warning ***)
+endif
+endif
+$(shell echo "LASTSTAGE=$(DEPLOYSTAGE)" > $(STAGEDIR)/laststage.mak)
+
 # Extract hosted zone from the account
 # assuming there's exactly one - no validation of that assumption right now
 GETZONEID=$(shell $(AWS) route53 list-hosted-zones \
@@ -73,13 +85,13 @@ GETCLOUDFRONTID=$(shell $(AWS) cloudfront list-distributions \
 		| $(JQ) '.DistributionList.Items[0].Id' \
 		| sed -e 's/"//g')
 
-# This make snippet will be generated on inclusion above
+# This make snippet will be generated when the file is included above
 $(STAGEDIR)/hosted-zone.%.mak: $(JQ)
 	$(ECHO) Generating $@
 	$(ECHO) Fetching hosted zone id...
 	$(ECHO) HOSTED_ZONE=$(GETZONEID) > $@
 
-# This make snippet will be generated on inclusion above
+# This make snippet will be generated when the file is included above
 $(STAGEDIR)/cloudfront-id.%.mak: $(JQ)
 	$(ECHO) Generating $@
 	$(ECHO) Fetching cloudfront/distribution id...
