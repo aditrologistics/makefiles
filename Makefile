@@ -102,7 +102,7 @@ $(STAGEDIR)/cloudfront-id.%.mak: $(JQ)
 # If it is not available the variable WEB_BUCKET_NAME
 # will not be set and it will not be possible to
 # deploy frontend.
--include $(STAGEDIR)/.env.webbucket.mak
+-include $(STAGEDIR)/.env.webbucket-$(DEPLOYSTAGE).mak
 
 foo:
 	$(ECHO) CLOUDFRONT: $(CLOUDFRONT_ID)
@@ -176,6 +176,7 @@ serve_backend backend_server:
 		--no-use-colors
 
 deploy_s3:
+	$(if $(WEB_BUCKET_NAME),,$(warning run "make update_env_vars DEPLOYSTAGE=$(DEPLOYSTAGE)" if WEB_BUCKET_NAME is not defined))
 	$(call require,WEB_BUCKET_NAME,$@)
 	$(AWS) s3 cp \
 		frontend/dist s3://${WEB_BUCKET_NAME} --recursive
@@ -323,7 +324,7 @@ update_env_vars: $(STACKVARS) $(DOTENVFILES) $(WEBBUCKET_MAK)
 
 	grep "^$(WEB_BUCKET_NAME_S3)=" $(subst .template,,$(WEBBUCKET_MAK)) \
 		| sed -e "s/$(WEB_BUCKET_NAME_S3)/WEB_BUCKET_NAME/" \
-		> $(subst _all.mak.template,.mak,$(WEBBUCKET_MAK))
+		> $(subst _all.mak.template,-$(DEPLOYSTAGE).mak,$(WEBBUCKET_MAK))
 
 
 $(STACKVARS) getoutputs: $(JQ)
