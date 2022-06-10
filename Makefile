@@ -130,9 +130,7 @@ check check_environment checkenvironment:
 		"\n" \
 		"PowerShell:\n" \
 		"-----------\n" \
-		'$$Env:HOMEDRIVE="C:"\n' \
-		'$$Env:HOMEPATH="\Users\$(USERNAME)"\n' \
-		'$$Env:USERPROFILE="C:\Users\$(USERNAME)"\n'
+		'$$Env:HOMEDRIVE="C:"; $$Env:HOMEPATH="\Users\$(USERNAME)"; $$Env:USERPROFILE="C:\Users\$(USERNAME)"\n'
 
 
 cdk_context=\
