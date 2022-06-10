@@ -333,6 +333,15 @@ $(STACKVARS) getoutputs: $(JQ)
 		| $(JQ) '.Stacks[0].Outputs|map(.OutputValue)' \
 		> $(STACKVARS)
 
+refresh_make:
+	cd $(makedir) && \
+		git checkout main && \
+		git pull
+
+	git add $(makedir)
+	$(ECHO) "makefiles added for next commit"
+
+
 # empty_bucket:
 # 	$(call require,BUCKET_NAME,$@)
 # 	$(AWS) s3api list-object-versions \
