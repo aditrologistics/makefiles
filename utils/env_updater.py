@@ -47,12 +47,9 @@ def convert_to_dict(vars: List[str]) -> Dict[str, str]:
         if len(pair) != 2:
             logger.info(f"Unable to parse '{_}'")
             continue
-        previous_value = result.get(pair[0])
-        if previous_value:
-            if previous_value != pair[1]:
-                logger.warning(f"Redefining {pair[0]} from '{previous_value}' to '{pair[1]}'.")
-            else:
-                logger.debug(f"{pair[0]} defined twice to '{pair[1]}'.")
+        previous_value = result.get(pair[0], pair[1])
+        if previous_value != pair[1]:
+            logger.warning(f"Redefining {pair[0]} from '{previous_value}' to '{pair[1]}'.")
 
         result[pair[0]] = pair[1]
 
