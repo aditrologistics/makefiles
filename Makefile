@@ -352,12 +352,14 @@ $(STAGEDIR)/.installed.%:
 	pip install $(subst .,,$(suffix $@))
 	$(ECHO) "$(subst .,,$(suffix $@)) installed" | tee $@
 
+CLEANABLE_FILES+=$(STAGEDIR)/.upgrade.pip
 $(STAGEDIR)/.upgrade.pip:
 	python -m pip install --upgrade pip
 	$(ECHO) "pip upgraded" | tee $@
 
+CLEANABLE_FILES+=$(STAGEDIR)/.requirements.installed
 $(STAGEDIR)/.requirements.installed: requirements.txt
-	if [ -f $< ]; then pip install -r $<; fi
+	if [ -f $< ]; then TOKEN=$(TOKEN)@ pip install -r $<; fi
 	$(ECHO) "$< installed" | tee $@
 
 pytest: pytest_setup
