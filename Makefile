@@ -56,6 +56,8 @@ ENV_UPDATER=python $(makedir)/utils/env_updater.py
 
 DEFINED_STAGES=$(if $(AWS_ACCOUNT_DEV),dev) $(if $(AWS_ACCOUNT_TEST),test) $(if $(AWS_ACCOUNT_PROD),prod)
 
+CLEANABLE_FILES=$(STAGEDIR)/.installed.flake8 $(STAGEDIR)/.installed.pytest
+
 # These files need to be included after variables are defined
 include $(STAGEDIR)/hosted-zone.$(DEPLOYSTAGE).mak
 -include $(STAGEDIR)/cloudfront-id.$(DEPLOYSTAGE).mak
@@ -108,6 +110,9 @@ foo:
 	$(ECHO) CLOUDFRONT: $(CLOUDFRONT_ID)
 	$(ECHO) HOSTED_ZONE: $(HOSTED_ZONE)
 	$(ECHO) variables $(subst CDK_,,$(filter CDK_%,$(.VARIABLES)))
+
+clean:
+	rm -f $(CLEANABLE_FILES)
 
 $(warning Deployment stage: $(DEPLOYSTAGE))
 
@@ -340,8 +345,26 @@ refresh_make:
 	$(ECHO) "makefiles added for next commit"
 
 
-# empty_bucket:
-# 	$(call require,BUCKET_NAME,$@)
-# 	$(AWS) s3api list-object-versions \
-# 		--bucket $(BUCKET_NAME) \
-# 	| $(JQ) ".Versions | [.[] | {Key: Key}]"
+flake_setup: $(STAGEDIR)/.upgrade.pip $(STAGEDIR)/.installed.flake8 $(STAGEDIR)/.requirements.installed
+pytest_setup: $(STAGEDIR)/.upgrade.pip $(STAGEDIR)/.installed.pytest $(STAGEDIR)/.requirements.installed
+
+$(STAGEDIR)/.installed.%:
+	pip install $(subst .,,$(suffix $@))
+	$(ECHO) "$(subst .,,$(suffix $@)) installed" | tee $@
+
+$(STAGEDIR)/.upgrade.pip:
+	python -m pip install --upgrade pip
+	$(ECHO) "pip upgraded" | tee $@
+
+$(STAGEDIR)/.requirements.installed: requirements.txt
+	if [ -f $< ]; then pip install -r $<; fi
+	$(ECHO) "$< installed" | tee $@
+
+pytest: pytest_setup
+	pytest
+
+flake: flake_setup
+	# stop the build if there are Python syntax errors or undefined names
+	flake8 --count --select=E9,F63,F7,F82 --show-source --statistics
+	# exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+	flake8 --count --max-complexity=10 --statistics backend
