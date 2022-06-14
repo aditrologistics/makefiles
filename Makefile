@@ -363,7 +363,7 @@ $(STAGEDIR)/.requirements.installed: requirements.txt
 	$(ECHO) "$< installed" | tee $@
 
 pytest: pytest_setup
-	pytest
+	AWS_PROFILE=$(AWS_PROFILE) pytest
 
 flake: flake_setup
 	# stop the build if there are Python syntax errors or undefined names
