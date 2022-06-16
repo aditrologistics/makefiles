@@ -12,15 +12,15 @@ In it, some key parameters must be defined.
 WORKLOAD_NAME=transportpricing
 
 # These needs to be set if anything is to be uploaded to Confluence
-#CONFLUENCE_SPACE=~383862944
+#CONFLUENCE_SPACE=<confluence space name>
 #CONFLUENCE_ANCESTOR=Uploaded
 
 # Specify the account numbers for all three environments.
 # They ALL need to be defined!!
 # If e.g. TEST has no account, specify XXX
-AWS_ACCOUNT_DEV=077410211940
-AWS_ACCOUNT_TEST=383105234713
-AWS_ACCOUNT_PROD=584748006736
+AWS_ACCOUNT_DEV=[aws_account_number]
+AWS_ACCOUNT_TEST=[aws_account_number]
+AWS_ACCOUNT_PROD=[aws_account_number]
 
 # Override possibilites
 # AWS_REGION defaults to eu-north-1 if not set
@@ -149,8 +149,8 @@ VUE_APP_WEBSOCKETAPI=wss://$wsapi_id.execute-api.$REGION.amazonaws.com/$STAGE
 
 You will end up with an .env-file that looks something like
 ```
-CDNUrl=d3kdnwyed4ijh8.cloudfront.net
-CDN_ID=E3GMWE2ABJ44BM
+CDNUrl=<id>.cloudfront.net
+CDN_ID=<id>
 COMPUTED_DATA_DIR=computed_data
 CUSTOMER_TABLE=customerdb-customers
 ADDRESS_TABLE=customerdb-adresses
