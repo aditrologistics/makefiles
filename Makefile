@@ -7,10 +7,21 @@ include $(makedir)/makehelpers.mak
 include ./makevars.mak
 -include ./makevars.$(USERNAME).mak
 
+ifdef DEPLOY_STAGE
+$(error Do not define DEPLOY_STAGE. The correct variable is DEPLOYSTAGE)
+endif
+ifdef deploystage
+$(error Do not define deploystage. The correct variable is DEPLOYSTAGE)
+endif
+ifdef deploy_stage
+$(error Do not define deploy_stage. The correct variable is DEPLOYSTAGE)
+endif
+
 # Unless we're executing the target `check`
 # verify that HOMEDRIVE is set to C:
 # If it is not, the aws/cdk tools will not find
 # credentials and config.
+# This is used to fail fast.
 ifneq ($(MAKECMDGOALS),check)
 EXPECTED_HOMEDRIVE?=C:
 $(if $(subst $(EXPECTED_HOMEDRIVE),,$(HOMEDRIVE)),\
