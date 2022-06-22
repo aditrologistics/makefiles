@@ -29,7 +29,12 @@ $(if $(subst $(EXPECTED_HOMEDRIVE),,$(HOMEDRIVE)),\
 			expected "$(EXPECTED_HOMEDRIVE)"))
 endif
 
-SSO_PORTAL=https://aditrologistics.awsapps.com/start
+ORGANIZATION?=aditrologistics
+AWS_ORGANIZATION?=$(ORGANIZATION)
+GIT_ORGANIZATION?=$(ORGANIZATION)
+CONFLUENCE_ORGANIZATION=$(ORGANIZATION)
+
+SSO_PORTAL=https://$(AWS_ORGANIZATION).awsapps.com/start
 SSO_REGION=eu-north-1
 SSO_ROLE?=ALAB-Developer
 AWS_REGION?=eu-north-1
@@ -51,7 +56,6 @@ SUBDOMAIN=$(SUBDOMAIN_$(DEPLOYSTAGE))
 AWS_ACCOUNT=$(AWS_ACCOUNT_$(DEPLOYSTAGE))
 
 ANCESTOR=$(if $(CONFLUENCE_ANCESTOR),-a $(CONFLUENCE_ANCESTOR))
-CONFLUENCE_ORGANIZATION=aditrologistics
 
 STAGEDIR=.stage
 JQ=$(STAGEDIR)/jq.exe
@@ -140,9 +144,7 @@ check check_environment checkenvironment:
 		"\n" \
 		"CMD:\n" \
 		"----\n" \
-		"SET HOMEDRIVE=C:\n" \
-		"SET HOMEPATH=\Users\%USERNAME%\n" \
-		"SET USERPROFILE=%HOMEDRIVE%%HOMEPATH%\n" \
+		"SET HOMEDRIVE=C: && SET HOMEPATH=\Users\%USERNAME%  && SET USERPROFILE=c:\Users\%USERNAME%\n" \
 		"\n" \
 		"PowerShell:\n" \
 		"-----------\n" \
@@ -373,11 +375,29 @@ $(STAGEDIR)/.requirements.installed: requirements.txt
 	if [ -f $< ]; then TOKEN=$(TOKEN)@ pip install -r $<; fi
 	$(ECHO) "$< installed" | tee $@
 
+# This target is used by github action
 pytest: pytest_setup
 	AWS_PROFILE=$(AWS_PROFILE) pytest
 
+# This target is used by github action
 flake: flake_setup
 	# stop the build if there are Python syntax errors or undefined names
 	flake8 --count --select=E9,F63,F7,F82 --show-source --statistics
 	# exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
 	flake8 --count --max-complexity=10 --statistics backend
+
+GIT_ACTION_REPO_NAME?=github_actions
+GIT_ACTION_REPO?=http://github.com/$(if $(GIT_ORGANIZATION),$(GIT_ORGANIZATION)/,)$(GIT_ACTION_REPO_NAME).git
+ACTIONS?=flake8 pytest
+WORKFLOW_DIR=.github/workflows
+
+$(STAGEDIR)/$(GIT_ACTION_REPO_NAME):
+	git clone $(GIT_ACTION_REPO) $@
+
+actions init_actions: $(STAGEDIR)/$(GIT_ACTION_REPO_NAME)
+	mkdir -p $(WORKFLOW_DIR)
+	cd $(STAGEDIR)/$(GIT_ACTION_REPO_NAME) && git pull
+	cp \
+		$(foreach f,$(ACTIONS),$(STAGEDIR)/$(GIT_ACTION_REPO_NAME)/workflows/$(f).yaml) \
+		$(WORKFLOW_DIR)
+	git status
