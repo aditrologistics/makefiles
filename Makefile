@@ -48,9 +48,10 @@ AWS_PROFILE=$(AWS_PROFILE_$(DEPLOYSTAGE))
 
 # Domains are named <workload>-<stage> except PROD which has no postfix.
 # Note that these variables can be set in the project-specific makevars.mak
-SUBDOMAIN_DEV?=$(WORKLOAD_NAME)-dev
-SUBDOMAIN_TEST?=$(WORKLOAD_NAME)-test
-SUBDOMAIN_PROD?=$(WORKLOAD_NAME)
+DOMAIN_NAME?=$(WORKLOAD_NAME)
+SUBDOMAIN_DEV?=$(DOMAIN_NAME)-dev
+SUBDOMAIN_TEST?=$(DOMAIN_NAME)-test
+SUBDOMAIN_PROD?=$(DOMAIN_NAME)
 SUBDOMAIN=$(SUBDOMAIN_$(DEPLOYSTAGE))
 
 AWS_ACCOUNT=$(AWS_ACCOUNT_$(DEPLOYSTAGE))
