@@ -402,3 +402,11 @@ actions init_actions: $(STAGEDIR)/$(GIT_ACTION_REPO_NAME)
 		$(foreach f,$(ACTIONS),$(STAGEDIR)/$(GIT_ACTION_REPO_NAME)/workflows/$(f).yaml) \
 		$(WORKFLOW_DIR)
 	git status
+
+
+PROTECTED_BRANCHES?=main master releases release dev
+purge_branches:
+	git branch | grep -q "^\* main" || (echo "Not on main branch"; exit 1)
+	git branch --merged \
+		| grep -v $(foreach b,$(PROTECTED_BRANCHES),-e $(b)) \
+		| xargs -I {} git branch -d {}
