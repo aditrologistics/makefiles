@@ -30,6 +30,7 @@ $(if $(subst $(EXPECTED_HOMEDRIVE),,$(HOMEDRIVE)),\
 endif
 
 ORGANIZATION?=aditrologistics
+ROOT_DOMAIN_NAME?=$(ORGANIZATION)
 AWS_ORGANIZATION?=$(ORGANIZATION)
 GIT_ORGANIZATION?=$(ORGANIZATION)
 CONFLUENCE_ORGANIZATION=$(ORGANIZATION)
@@ -53,6 +54,8 @@ SUBDOMAIN_DEV?=$(DOMAIN_NAME)-dev
 SUBDOMAIN_TEST?=$(DOMAIN_NAME)-test
 SUBDOMAIN_PROD?=$(DOMAIN_NAME)
 SUBDOMAIN=$(SUBDOMAIN_$(DEPLOYSTAGE))
+TOP_LEVEL_DOMAIN?=nu
+ROOT_DOMAIN?=$(ROOT_DOMAIN_NAME).$(TOP_LEVEL_DOMAIN)
 
 AWS_ACCOUNT=$(AWS_ACCOUNT_$(DEPLOYSTAGE))
 
@@ -90,9 +93,9 @@ endif
 endif
 $(shell echo "LASTSTAGE=$(DEPLOYSTAGE)" > $(STAGEDIR)/laststage.mak)
 
-# Extract hosted zone from the account
-# assuming there's exactly one - no validation of that assumption right now
-GETZONEID=$(shell $(AWS) route53 list-hosted-zones \
+# Extract hosted zone with the expected name from the account
+GETZONEID=$(shell $(AWS) route53 list-hosted-zones-by-name \
+		--dns-name=$(SUBDOMAIN).$(ROOT_DOMAIN) \
 	| $(JQ) .HostedZones[0].Id \
 	| sed -e 's/"//g' -e 's!/hostedzone/!!')
 
