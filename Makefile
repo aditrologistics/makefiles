@@ -340,7 +340,9 @@ update_env_vars: $(STACKVARS) $(DOTENVFILES) $(WEBBUCKET_MAK)
 		--vars $(filter %.json,$^) \
 		--envfiles $(filter %.txt,$^) \
 		-v UVICORN_PORT=8000 \
-		-v REGION=$(AWS_REGION)
+		-v REGION=$(AWS_REGION) \
+		-v AWS_PROFILE=$(AWS_PROFILE) \
+		$(foreach ev,$(EXTRA_ENV_VARS),-v $(ev))
 
 	grep "^$(WEB_BUCKET_NAME_S3)=" $(subst .template,,$(WEBBUCKET_MAK)) \
 		| sed -e "s/$(WEB_BUCKET_NAME_S3)/WEB_BUCKET_NAME/" \
