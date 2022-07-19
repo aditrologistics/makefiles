@@ -163,6 +163,8 @@ cdk_context=\
 		-c REGION=$(AWS_REGION) \
 		-c hosted_zone=$(HOSTED_ZONE)
 
+deploy_all: deploy_backend deploy_frontend
+
 deploy_backend deploybackend backend_deploy backend: cdk_deploy update_env_vars
 destroy backend_destroy destroy_backend: cdk_destroy
 bootstrap: cdk_bootstrap
