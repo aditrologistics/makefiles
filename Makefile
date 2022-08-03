@@ -221,14 +221,14 @@ invalidate_cdn: remove_cloudfront-id_if_empty
 deploy_frontend frontend_deploy: build_dist deploy_s3 invalidate_cdn
 
 
-sourcefile=README.md
-makedocs: CONFLUENCE_SPACE=LOG
-makedocs: CONFLUENCE_ANCESTOR="Creating new workloads"
-makedocs: sourcefile=makefiles/README.md
-makedocs: docs
+# By default upload README.md. This can be overridden by
+# setting CONFLUENCEFILES to a list of files to upload in makevars.mak.
+# Example:
+# CONFLUENCEFILES=README.md DEVINFO.md
+# Note that all files will be uploaded under the same ancestor.
+CONFLUENCEFILES?=README.md
 
-
-docs: prereqs
+upload_%:
 	$(call require,CONFLUENCE_SPACE)
 	$(call require,CONFLUENCE_USER)
 	$(call require,CONFLUENCE_API_KEY)
@@ -237,7 +237,9 @@ docs: prereqs
 		-p $(CONFLUENCE_API_KEY) \
 		-o $(CONFLUENCE_ORGANIZATION) \
 		$(ANCESTOR) \
-		$(sourcefile) $(CONFLUENCE_SPACE)
+		$(subst upload_,,$@) $(CONFLUENCE_SPACE)
+
+makedocs docs: prereqs $(foreach f,$(CONFLUENCEFILES),upload_$(f))
 
 
 credentials getcredentials: $(JQ) ssologin
@@ -298,7 +300,7 @@ $(STAGEDIR)/.installed.md2conf: $(MD2CONF)
 
 $(MD2CONF):
 	$(call require,MD2CONF)
-	git clone https://github.com/RittmanMead/md_to_conf.git $(dir $@)
+	git clone https://github.com/aditrologistics/md_to_conf.git $(dir $@)
 
 
 $(STAGEDIR):
