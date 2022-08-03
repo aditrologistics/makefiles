@@ -163,6 +163,8 @@ cdk_context=\
 		-c REGION=$(AWS_REGION) \
 		-c hosted_zone=$(HOSTED_ZONE)
 
+deploy_all: deploy_backend deploy_frontend
+
 deploy_backend deploybackend backend_deploy backend: cdk_deploy update_env_vars
 destroy backend_destroy destroy_backend: cdk_destroy
 bootstrap: cdk_bootstrap
@@ -342,7 +344,9 @@ update_env_vars: $(STACKVARS) $(DOTENVFILES) $(WEBBUCKET_MAK)
 		--vars $(filter %.json,$^) \
 		--envfiles $(filter %.txt,$^) \
 		-v UVICORN_PORT=8000 \
-		-v REGION=$(AWS_REGION)
+		-v REGION=$(AWS_REGION) \
+		-v AWS_PROFILE=$(AWS_PROFILE) \
+		$(foreach ev,$(EXTRA_ENV_VARS),-v $(ev))
 
 	grep "^$(WEB_BUCKET_NAME_S3)=" $(subst .template,,$(WEBBUCKET_MAK)) \
 		| sed -e "s/$(WEB_BUCKET_NAME_S3)/WEB_BUCKET_NAME/" \
