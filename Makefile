@@ -393,7 +393,7 @@ $(STAGEDIR)/.requirements.installed: requirements.txt
 # or setting PYTEST_ARGS.
 # See https://docs.pytest.org/en/stable/reference/reference.html
 # for more info
-PYTEST_DIRS?=backend
+PYTEST_DIRS?=backend/tests
 # Avoid scanning some directories that contain 'foreign' code.
 # This list can be amended in `$/makevars.mak` or pytest.ini.
 PYTEST_IGNORE_GLOB+=backend/cdk.out/* \
