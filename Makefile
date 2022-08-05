@@ -385,9 +385,30 @@ $(STAGEDIR)/.requirements.installed: requirements.txt
 	if [ -f $< ]; then TOKEN=$(TOKEN)@ pip install -r $<; fi
 	$(ECHO) "$< installed" | tee $@
 
+# By default, search the 'backend' directory for tests.
+# Add more directories to scan (but why?) by setting the variable in
+# `$/makevars.mak`.
+# It is of course possible to abuse this variable by passing in
+# other arguments, but it's better to define them in `$/backend.pytest.ini`
+# or setting PYTEST_ARGS.
+# See https://docs.pytest.org/en/stable/reference/reference.html
+# for more info
+PYTEST_DIRS?=backend
+# Avoid scanning some directories that contain 'foreign' code.
+# This list can be amended in `$/makevars.mak` or pytest.ini.
+PYTEST_IGNORE_GLOB+=backend/cdk.out/* \
+	backend/backend/* \
+	backend/.layers.out/*
+
+# To pass in additional environment variables to the code executed in the
+# tests, specify PYTEST_ENV_VARS=var1=value1 [var2=value2 ...]
+
 # This target is used by github action
 pytest: pytest_setup
-	AWS_PROFILE=$(AWS_PROFILE) pytest
+	AWS_PROFILE=$(AWS_PROFILE) $(PYTEST_ENV_VARS) pytest \
+		$(PYTEST_ARGS) \
+		$(PYTEST_DIRS) \
+		$(foreach ignore,$(PYTEST_IGNORE_GLOB),--ignore-glob=$(ignore))
 
 # This target is used by github action
 flake: flake_setup
