@@ -98,7 +98,8 @@ $(shell echo "LASTSTAGE=$(DEPLOYSTAGE)" > $(STAGEDIR)/laststage.mak)
 laststage:
 	$(ECHO) "Last deployment stage: $(LASTSTAGE)"
 	$(ECHO) "Deployment stage: $(DEPLOYSTAGE)"
-	$(if $(LASTSTAGE),$(DEPLOYSTAGE),$(ECHO) "You may want to run 'make update_env_vars' to update the environment variables from the stack."
+	$(if $(subst $(LASTSTAGE),,$(DEPLOYSTAGE)),\
+		$(ECHO) "You may want to run 'make update_env_vars' to update the environment variables from the stack.")
 
 # Extract hosted zone with the expected name from the account
 GETZONEID=$(shell $(AWS) route53 list-hosted-zones-by-name \
